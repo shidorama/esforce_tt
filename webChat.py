@@ -10,7 +10,7 @@ from twisted.web.http import Request
 from twisted.web.resource import ErrorPage
 from voluptuous import Schema, error
 
-from common import users, chatCache, onlineUsers, protocols, web_users_by_token, web_users_by_username, filter_string
+from common import users, chatCache, online_users, protocols, web_users_by_token, web_users_by_username, filter_string
 from user import User
 
 
@@ -57,7 +57,7 @@ class ChatResource(resource.Resource):
             request.setHeader('Access-Control-Allow-Origin', origin)
         return super(ChatResource, self).render(request)
 
-    def getJsonContent(self, requset: Request) -> Union[List, Dict, bool]:
+    def get_json_content(self, requset: Request) -> Union[List, Dict, bool]:
         """loads raw data from request and tries to parse it as JSON
 
         :param requset:
@@ -79,7 +79,7 @@ class ChatResource(resource.Resource):
         return json.dumps(error).encode()
 
     def is_parseable_and_valid(self, request: Request, schema: Schema) -> Union[bool, bytes]:
-        data = self.getJsonContent(request)
+        data = self.get_json_content(request)
         if not data:
             return self.abort(request, 422, 'Cannot parse JSON')
         try:
@@ -103,7 +103,7 @@ class UserResource(ChatResource):
         :param user:
         :return:
         """
-        onlineUsers.add(username)
+        online_users.add(username)
         token = md5(uuid1().bytes).hexdigest()
         data = {
             'token': token,
@@ -158,7 +158,7 @@ class Auth(UserResource):
         password = self.__data.get('password')
         if username in users:
             user = users.get(username)
-            if username not in onlineUsers or username in web_users_by_username:
+            if username not in online_users or username in web_users_by_username:
                 if username in web_users_by_username:
                     client = web_users_by_username[username]
                     web_users_by_username.pop(client['user'].name)
@@ -193,7 +193,7 @@ class ActiveUsers(AuthorizedResources):
         """
         user = self.check_auth(request)
         if isinstance(user, User):
-            return json.dumps(list(onlineUsers)).encode()
+            return json.dumps(list(online_users)).encode()
         return user
 
 

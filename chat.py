@@ -5,7 +5,7 @@ from time import time
 from twisted.internet.protocol import Factory
 from twisted.protocols.basic import LineReceiver
 
-from common import onlineUsers, chatCache, users, protocols, filter_string
+from common import online_users, chatCache, users, protocols, filter_string
 from user import User
 
 
@@ -19,7 +19,7 @@ class ChatClient(object):
         """Removes user from online users if he authorized
         """
         if self.authorized:
-            onlineUsers.remove(self.user.name)
+            online_users.remove(self.user.name)
 
     def authorize(self):
         """Set user state to authorized and add his login to online users list
@@ -27,7 +27,7 @@ class ChatClient(object):
         :return:
         """
         self.authorized = True
-        onlineUsers.add(self.user.name)
+        online_users.add(self.user.name)
 
     def send_message(self, timestamp: float, name: str, line: str):
         """Send message to current user
@@ -142,7 +142,7 @@ class ChatClientTelnet(LineReceiver, ChatClient):
             self.menu_position = self.MENU_AUTH_PASSWORD
         elif self.menu_position == self.MENU_AUTH_PASSWORD:
             login = self.menu_data['name']
-            if login in onlineUsers:
+            if login in online_users:
                 self.transport.write(b'User is already online!\r\n')
                 self.transport.loseConnection()
                 return

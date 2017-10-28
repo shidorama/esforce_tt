@@ -10,7 +10,7 @@ WEB_TIMEOUT = 60
 CACHE_SIZE = 100
 
 users = {}
-onlineUsers = set()
+online_users = set()
 protocols = set()
 web_users_by_username = {}
 web_users_by_token = {}
@@ -63,7 +63,7 @@ def clean_web_clients():
         if now - client['updated'] > WEB_TIMEOUT:
             web_users_by_username.pop(client['user'].name)
             web_users_by_token.pop(client['token'])
-            onlineUsers.remove(client['user'].name)
+            online_users.remove(client['user'].name)
             print('Deleted %s' % client)
 
 def filter_string(line: Union[bytes, str]) -> str:
