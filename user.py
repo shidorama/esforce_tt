@@ -1,11 +1,11 @@
-from common import users, save_users
+from common import users, save_users, filter_string
 
 reservedNames = {'e', 'l', 'r', }
 
 
 class User(object):
     def __init__(self, name, password):
-        self.name = name
+        self.name = filter_string(name)
         self.password = password
 
     def auth(self, password):

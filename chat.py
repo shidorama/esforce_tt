@@ -5,8 +5,9 @@ from time import time
 from twisted.internet.protocol import Factory
 from twisted.protocols.basic import LineReceiver
 
-from common import onlineUsers, chatCache, users, protocols
+from common import onlineUsers, chatCache, users, protocols, filter_string
 from user import User
+
 
 
 class ChatClient(object):
@@ -15,21 +16,44 @@ class ChatClient(object):
         self.authorized = False
 
     def exit(self):
+        """Removes user from online users if he authorized
+        """
         if self.authorized:
             onlineUsers.remove(self.user.name)
 
     def authorize(self):
+        """Set user state to authorized and add his login to online users list
+
+        :return:
+        """
         self.authorized = True
         onlineUsers.add(self.user.name)
 
-    def send_message(self, timestamp, name, line):
+    def send_message(self, timestamp: float, name: str, line: str):
+        """Send message to current user
+
+        :param timestamp: timestamp of message
+        :param name: nick or login of sender
+        :param line: message itself
+        :return:
+        """
         raise NotImplementedError()
 
-    def register_user(self, login, password):
+    def register_user(self, login: str, password: str) -> bool:
+        """Register user into database
+
+        :param login: username
+        :param password: password of the user
+        :return: result of the registration
+        """
         self.user = User(login, password)
         return self.user.register()
 
-    def broadcast(self, line):
+    def broadcast(self, line: str):
+        """Send message to all telnet clients and add message to chat cache for web clients
+
+        :param line: message to broadcast
+        """
         timestamp = time()
         chatCache.push_line(timestamp, self.user.name, line)
         for client in protocols:
@@ -61,14 +85,15 @@ class ChatClientTelnet(LineReceiver, ChatClient):
     def connectionLost(self, reason):
         self.exit()
 
-    @staticmethod
-    def filter_string(line):
-        return ''.join(filter(lambda x: x in string.printable, line.decode('utf-8', 'ignore')))
 
-    def lineReceived(self, line):
-        line = self.filter_string(line)
+    def lineReceived(self, line: bytes):
+        """Entry point for data received on socket
+
+        data is cleaned and the then reacted upon
+        :param line: line received from socket
+        """
+        line = filter_string(line)
         if line == 'e':
-            # TODO: lose connection, drop user
             self.transport.loseConnection()
         if self.authorized:
             self.broadcast(line)
@@ -76,6 +101,17 @@ class ChatClientTelnet(LineReceiver, ChatClient):
             self.menu(line)
 
     def menu(self, line):
+        """Big and ugly function which works with login and registration process
+
+        Flow is as follows
+        Start -> register -> enter login -> enter password -> if user can be registered -> exit to chat
+        |                                           <--- goto register <---- else
+        |
+        -> login -> enter login -> enter password -> if auth OK -> exit to chat\
+                            <----- goto login <------else
+
+        :param line: line received
+        """
         if self.menu_position == self.MENU_MAIN:
             if line == 'r':
                 self.menu_position = self.MENU_REGISTER
@@ -120,12 +156,17 @@ class ChatClientTelnet(LineReceiver, ChatClient):
             self.menu_position = self.MENU_REGISTER_LOGIN
 
     def join(self):
+        """displays welcome banner and prints out chat cache
+
+        """
         self.transport.write(b'Welcome to chat\r\n')
         for cc in chatCache.getCache():
             self.send_message(*cc)
 
-    def send_message(self, timestamp, name, line):
-        str_time = datetime.strftime(datetime.fromtimestamp(timestamp), '%H:%M')
+    def send_message(self, timestamp: float, name: str, line: str):
+        """Formats message and then writes it to client's socket
+        """
+        str_time = datetime.strftime(datetime.fromtimestamp(timestamp), '%H:%M:%S')
         chat_line = "%s - %s: %s\r\n" % (str_time, name, line)
         self.transport.write(chat_line.encode())
 
