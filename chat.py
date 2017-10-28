@@ -1,44 +1,19 @@
 import string
-from random import randint
-from collections import OrderedDict
-from twisted.internet import reactor
-from twisted.web import server, resource
-from twisted.internet.protocol import ServerFactory, Factory
-from twisted.protocols.basic import LineReceiver
 from datetime import datetime
 from pickle import dump, load
 from time import time
-# from typing import
 
+from twisted.internet import reactor
+from twisted.internet.protocol import Factory
+from twisted.protocols.basic import LineReceiver
+from twisted.web import server
+
+from webChat import root
+from common import onlineUsers, chatCache, users, save_users
+from user import User
+
+reservedNames = {'e', 'l', 'r', }
 protocols = set()
-users = {}
-onlineUsers = set()
-reservedNames = {'e', 'l', 'r',}
-CACHE_SIZE = 100
-
-class ChatCache(object):
-    def __init__(self):
-        self.cache = []
-    def push_line(self, timestamp, user, line):
-        self.cache.append((timestamp, user, line))
-        while len(self.cache) > CACHE_SIZE:
-            self.cache.pop(-1)
-
-    def getCache(self):
-        return self.cache
-
-chatCache = ChatCache()
-
-class User(object):
-    def __init__(self, name, password):
-        self.name = name
-        self.password = password
-
-    def auth(self, password):
-        if self.password == password:
-            return True
-        return False
-
 
 class ChatClient(object):
     def __init__(self):
@@ -60,9 +35,8 @@ class ChatClient(object):
         if login in users or login in reservedNames:
             return False
         self.user = User(login, password)
+        self.user.register()
         self.authorized = True
-        users[self.user.name] = self.user
-        save_users()
         return True
 
     def broadcast(self, line):
@@ -71,7 +45,6 @@ class ChatClient(object):
         for client in protocols:
             if client.authorized and client is not self:
                 client.send_message(timestamp, self.user.name, line)
-
 
 
 class ChatClientTelnet(LineReceiver, ChatClient):
@@ -159,29 +132,22 @@ class ChatClientTelnet(LineReceiver, ChatClient):
         for cc in chatCache.getCache():
             self.send_message(*cc)
 
-
     def send_message(self, timestamp, name, line):
         str_time = datetime.strftime(datetime.fromtimestamp(timestamp), '%H:%M')
         chat_line = "%s - %s: %s\r\n" % (str_time, name, line)
         self.transport.write(chat_line.encode())
 
 
-
-
-
 class TNChatFactory(Factory):
     def buildProtocol(self, addr):
         return ChatClientTelnet()
 
-def save_users():
-    with open('users.json', 'wb') as fp:
-        try:
-            dump(users, fp)
-        except IOError as e:
-            raise
+
+
+
 
 if __name__ == '__main__':
-    save_users() # Remove this
+    save_users()  # Remove this
     with open('users.json', 'rb') as fp:
         try:
             users = load(fp)
@@ -190,6 +156,8 @@ if __name__ == '__main__':
         except IOError as e:
             raise
 
+    http_server = server.Site(root)
     chatFactory = TNChatFactory()
     reactor.listenTCP(8050, chatFactory)
+    reactor.listenTCP(8080, http_server)
     reactor.run()
