@@ -1,0 +1,119 @@
+openapi: 3.0.0
+info:
+  version: '0.1'
+  title: ESForce Test Task
+paths:
+  /auth:
+    post:
+      responses:
+        200:
+          description: Token generated and returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Token'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+  /register:
+    post:
+      responses:
+        200:
+          description: Token generated and returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Token'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+  /chat:
+    get:
+      security:
+        - BearerToken: []
+      responses:
+        200:
+          description: Get recent chat messages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Chat'
+
+    post:
+      security:
+        - BearerToken: []
+      responses:
+        200:
+          description: Get recent chat messages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Chat'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatMessage'
+
+  /users:
+    get:
+      security:
+        - BearerToken: []
+      responses:
+        200:
+          description: List of currently active (online) users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+
+components:
+  securitySchemes:
+    BearerToken:
+      type: http
+      scheme: bearer
+  schemas:
+    ChatMessage:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+         type: string
+    Chat:
+      type: array
+      items:
+        type: array
+        minItems: 3
+        maxItems: 3
+        items:
+          anyOf:
+            - type: number
+              description: timestamp
+            - type: string
+              description: username
+            - type: string
+              description: message
+    User:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+    Token:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
