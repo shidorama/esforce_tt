@@ -13,6 +13,14 @@ from user import User
 
 
 class ChatResource(resource.Resource):
+    def render_OPTIONS(self, request):
+        request.setHeader('allow', 'OPTIONS, GET, HEAD, POST')
+        request.setHeader('Access-Control-Allow-Methods', request.getHeader('access-control-request-method'))
+        request.setHeader('Access-Control-Allow-Headers', request.getHeader('access-control-request-headers'))
+        request.setHeader('Access-Control-Allow-Origin', request.getHeader('origin'))
+        return b''
+
+
     def getChild(self, path, request):
         str_path = path.decode()
         child = self.children.get(str_path)
@@ -22,6 +30,9 @@ class ChatResource(resource.Resource):
 
     def render(self, request):
         request.setHeader('content-type', 'application/json')
+        request.setHeader('Access-Control-Allow-Methods', request.getHeader('access-control-request-method'))
+        request.setHeader('Access-Control-Allow-Headers', request.getHeader('access-control-request-headers'))
+        request.setHeader('Access-Control-Allow-Origin', request.getHeader('origin'))
         return super(ChatResource, self).render(request)
 
     def getJsonContent(self, requset):
@@ -93,7 +104,7 @@ class AuthorizedResources(ChatResource):
             if len(auth) == 2:
                 if auth[1] in web_users_by_token:
                     web_users_by_token[auth[1]]['updated'] = time()
-                    return web_users_by_token[auth[1]]
+                    return web_users_by_token[auth[1]]['user']
         return self.not_authorized(request)
 
     def not_authorized(self, request):
@@ -128,6 +139,7 @@ class ChatChat(AuthorizedResources):
             schema(data)
             message = data.get('message')
             timestamp = time()
+            chatCache.push_line(timestamp, user.name, message)
             for client in protocols:
                 if client.authorized:
                     client.send_message(timestamp, user.name, message)

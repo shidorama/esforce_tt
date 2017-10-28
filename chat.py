@@ -1,19 +1,12 @@
-import os
 import string
 from datetime import datetime
-from pickle import load
 from time import time
 
-from twisted.internet import reactor, task
 from twisted.internet.protocol import Factory
 from twisted.protocols.basic import LineReceiver
-from twisted.web import server
 
-from common import onlineUsers, chatCache, users, protocols, clean_web_clients
+from common import onlineUsers, chatCache, users, protocols
 from user import User
-from webChat import root
-
-reservedNames = {'e', 'l', 'r', }
 
 
 class ChatClient(object):
@@ -33,12 +26,8 @@ class ChatClient(object):
         raise NotImplementedError()
 
     def register_user(self, login, password):
-        if login in users or login in reservedNames:
-            return False
         self.user = User(login, password)
-        self.user.register()
-        self.authorized = True
-        return True
+        return self.user.register()
 
     def broadcast(self, line):
         timestamp = time()
@@ -146,20 +135,4 @@ class TNChatFactory(Factory):
         return ChatClientTelnet()
 
 
-if __name__ == '__main__':
-    if os.path.getsize('users.pickle') > 0:
-        with open('users.pickle', 'rb') as fp:
-            try:
-                users.update(**load(fp))
-            except ValueError:
-                pass
-            except IOError as e:
-                raise
 
-    http_server = server.Site(root)
-    chatFactory = TNChatFactory()
-    cleaner = task.LoopingCall(clean_web_clients)
-    cleaner.start(10.0, False)
-    reactor.listenTCP(8050, chatFactory)
-    reactor.listenTCP(8080, http_server)
-    reactor.run()

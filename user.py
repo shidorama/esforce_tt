@@ -1,5 +1,8 @@
 from common import users, save_users
 
+reservedNames = {'e', 'l', 'r', }
+
+
 class User(object):
     def __init__(self, name, password):
         self.name = name
@@ -11,7 +14,7 @@ class User(object):
         return False
 
     def register(self):
-        if self.name in users:
+        if self.name in users or self.name in reservedNames:
             return False
         users[self.name] = self
         save_users()
