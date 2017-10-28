@@ -1,19 +1,20 @@
+import os
 import string
 from datetime import datetime
-from pickle import dump, load
+from pickle import load
 from time import time
 
-from twisted.internet import reactor
+from twisted.internet import reactor, task
 from twisted.internet.protocol import Factory
 from twisted.protocols.basic import LineReceiver
 from twisted.web import server
 
-from webChat import root
-from common import onlineUsers, chatCache, users, save_users
+from common import onlineUsers, chatCache, users, protocols, clean_web_clients
 from user import User
+from webChat import root
 
 reservedNames = {'e', 'l', 'r', }
-protocols = set()
+
 
 class ChatClient(object):
     def __init__(self):
@@ -105,6 +106,7 @@ class ChatClientTelnet(LineReceiver, ChatClient):
                 self.transport.write(b'Username is not available! Chose another:\r\n')
                 self.menu_position = self.MENU_REGISTER_LOGIN
                 return
+            self.authorize()
             self.join()
         elif self.menu_position == self.MENU_AUTH:
             self.transport.write(b'Login:\r\n')
@@ -115,13 +117,14 @@ class ChatClientTelnet(LineReceiver, ChatClient):
             self.menu_position = self.MENU_AUTH_PASSWORD
         elif self.menu_position == self.MENU_AUTH_PASSWORD:
             login = self.menu_data['name']
-            if users[login] in onlineUsers:
+            if login in onlineUsers:
                 self.transport.write(b'User is already online!\r\n')
                 self.transport.loseConnection()
                 return
             if login in users:
                 if users[login].auth(line):
-                    self.authorized = True
+                    self.user = users[login]
+                    self.authorize()
                     self.join()
                     return
             self.transport.write(b'Username or password does not match! Try again. Login:\r\n')
@@ -143,21 +146,20 @@ class TNChatFactory(Factory):
         return ChatClientTelnet()
 
 
-
-
-
 if __name__ == '__main__':
-    save_users()  # Remove this
-    with open('users.json', 'rb') as fp:
-        try:
-            users = load(fp)
-        except ValueError:
-            pass
-        except IOError as e:
-            raise
+    if os.path.getsize('users.pickle') > 0:
+        with open('users.pickle', 'rb') as fp:
+            try:
+                users.update(**load(fp))
+            except ValueError:
+                pass
+            except IOError as e:
+                raise
 
     http_server = server.Site(root)
     chatFactory = TNChatFactory()
+    cleaner = task.LoopingCall(clean_web_clients)
+    cleaner.start(10.0, False)
     reactor.listenTCP(8050, chatFactory)
     reactor.listenTCP(8080, http_server)
     reactor.run()

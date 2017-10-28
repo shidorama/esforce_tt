@@ -13,6 +13,6 @@ class User(object):
     def register(self):
         if self.name in users:
             return False
-        users[self.user.name] = self.user
+        users[self.name] = self
         save_users()
         return True
