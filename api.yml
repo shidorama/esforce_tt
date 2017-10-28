@@ -12,6 +12,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Token'
+        400:
+          description: Username is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        422:
+          description: Data provided is unparsable or required fields are missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       requestBody:
         content:
           application/json:
@@ -26,6 +38,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Token'
+        400:
+          description: Username is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        422:
+          description: Data provided is unparsable or required fields are missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       requestBody:
         content:
           application/json:
@@ -42,6 +66,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Chat'
+        401:
+          description: User is not authorized to view list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
     post:
       security:
@@ -53,6 +83,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Chat'
+        401:
+          description: User is not authorized to view list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
       requestBody:
         content:
           application/json:
@@ -72,6 +108,14 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/User'
+        401:
+          description: User is not authorized to view list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+
 
 components:
   securitySchemes:
@@ -116,4 +160,14 @@ components:
         - token
       properties:
         token:
+          type: string
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
           type: string

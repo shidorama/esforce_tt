@@ -16,6 +16,10 @@ from user import User
 
 
 class ChatResource(resource.Resource):
+    def __init__(self):
+        super(ChatResource, self).__init__()
+        self.__data = None
+
     def render_OPTIONS(self, request: Request) -> bytes:
         """basic options request. No body.
 
@@ -74,7 +78,7 @@ class ChatResource(resource.Resource):
         }
         return json.dumps(error).encode()
 
-    def is_parseable_and_valid(self, request: Request, schema: Schema) -> Union[dict, bytes]:
+    def is_parseable_and_valid(self, request: Request, schema: Schema) -> Union[bool, bytes]:
         data = self.getJsonContent(request)
         if not data:
             return self.abort(request, 422, 'Cannot parse JSON')
@@ -82,6 +86,8 @@ class ChatResource(resource.Resource):
             schema(data)
         except error.MultipleInvalid as e:
             return self.abort(request, 422, 'Data schema does not match')
+        self.__data = data
+        return True
 
 
 
@@ -121,9 +127,11 @@ class Register(UserResource):
         :return:
         """
         schema = Schema({"username": str, "password": str}, required=True)
-
-        username = data.get('username')
-        password = data.get('password')
+        check_result = self.is_parseable_and_valid(request, schema)
+        if check_result is not True:
+            return check_result
+        username = self.__data.get('username')
+        password = self.__data.get('password')
         if username not in users:
             user = User(username, password)
             if user.register():
@@ -136,11 +144,18 @@ class Auth(UserResource):
     isLeaf = True
 
     def render_POST(self, request: Request) -> bytes:
+        """Authorize user and generates access token for him to use.
+
+        Token is valid while user is submitting timely requests
+        :param request:
+        :return:
+        """
         schema = Schema({"username": str, "password": str}, required=True)
-        data = self.getJsonContent(request)
-        schema(data)
-        username = data.get('username')
-        password = data.get('password')
+        check_result = self.is_parseable_and_valid(request, schema)
+        if check_result is not True:
+            return check_result
+        username = self.__data.get('username')
+        password = self.__data.get('password')
         if username in users:
             user = users.get(username)
             if username not in onlineUsers or username in web_users_by_username:
@@ -156,6 +171,9 @@ class Auth(UserResource):
 
 class AuthorizedResources(ChatResource):
     def check_auth(self, request: Request) -> Union[bytes, User]:
+        """Checks is user submitted access token and this token is valid
+
+        """
         raw_auth = request.requestHeaders.getRawHeaders('authorization')
         for auth_item in raw_auth:
             auth = auth_item.split()
@@ -170,6 +188,9 @@ class ActiveUsers(AuthorizedResources):
     isLeaf = True
 
     def render_GET(self, request: Request) -> bytes:
+        """Returns list of online users
+
+        """
         user = self.check_auth(request)
         if isinstance(user, User):
             return json.dumps(list(onlineUsers)).encode()
@@ -180,18 +201,29 @@ class ChatChat(AuthorizedResources):
     isLeaf = True
 
     def render_GET(self, request: Request) -> bytes:
+        """Returns all of the chat cache
+
+        :param request:
+        :return:
+        """
         user = self.check_auth(request)
         if isinstance(user, User):
             return json.dumps(chatCache.getCache()).encode()
         return user
 
     def render_POST(self, request: Request) -> bytes:
+        """Submits message from user to chat and returns chat cache
+
+        :param request:
+        :return:
+        """
         user = self.check_auth(request)
         if isinstance(user, User):
-            data = self.getJsonContent(request)
             schema = Schema({'message': str}, required=True)
-            schema(data)
-            message = filter_string(data.get('message'))
+            check_result = self.is_parseable_and_valid(request, schema)
+            if check_result is not True:
+                return check_result
+            message = filter_string(self.__data.get('message'))
             timestamp = time()
             chatCache.push_line(timestamp, user.name, message)
             for client in protocols:
