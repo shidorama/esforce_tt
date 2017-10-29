@@ -5,7 +5,7 @@ from time import time
 from twisted.internet.protocol import Factory
 from twisted.protocols.basic import LineReceiver
 
-from common import online_users, chatCache, users, protocols, filter_string
+from common import online_users, chat_cache, users, protocols, filter_string
 from user import User
 
 
@@ -55,7 +55,7 @@ class ChatClient(object):
         :param line: message to broadcast
         """
         timestamp = time()
-        chatCache.push_line(timestamp, self.user.name, line)
+        chat_cache.push_line(timestamp, self.user.name, line)
         for client in protocols:
             if client.authorized and client is not self:
                 client.send_message(timestamp, self.user.name, line)
@@ -160,7 +160,7 @@ class ChatClientTelnet(LineReceiver, ChatClient):
 
         """
         self.transport.write(b'Welcome to chat\r\n')
-        for cc in chatCache.getCache():
+        for cc in chat_cache.getCache():
             self.send_message(*cc)
 
     def send_message(self, timestamp: float, name: str, line: str):

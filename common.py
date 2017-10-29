@@ -6,6 +6,10 @@ from pickle import dump
 from time import time
 from typing import Union
 
+EXTRA_EXCLUDE = set('\t\n\r\x0b\x0c')
+PRINTABLE_CHARS = set(string.printable)
+ALLOWED_CHARS = PRINTABLE_CHARS - EXTRA_EXCLUDE
+
 WEB_TIMEOUT = 60
 CACHE_SIZE = 100
 
@@ -40,7 +44,7 @@ class ChatCache(object):
         return self.cache
 
 
-chatCache = ChatCache()
+chat_cache = ChatCache()
 
 
 def save_users():
@@ -60,11 +64,10 @@ def clean_web_clients():
     usernames = list(web_users_by_username.keys())
     for client_name in usernames:
         client = web_users_by_username[client_name]
-        if now - client['updated'] > WEB_TIMEOUT:
+        if now - client['updated'] >= WEB_TIMEOUT:
             web_users_by_username.pop(client['user'].name)
             web_users_by_token.pop(client['token'])
             online_users.remove(client['user'].name)
-            print('Deleted %s' % client)
 
 def filter_string(line: Union[bytes, str]) -> str:
     """Cleans bytestring of all that's not in 'printable' and returns it as string
@@ -75,4 +78,4 @@ def filter_string(line: Union[bytes, str]) -> str:
     raw_str = line
     if isinstance(line, bytes):
         raw_str = line.decode('utf-8', 'ignore')
-    return ''.join(filter(lambda x: x in string.printable, raw_str))
+    return ''.join(filter(lambda x: x in ALLOWED_CHARS, raw_str))

@@ -1,24 +1,21 @@
 import json
-import string
 from hashlib import md5
 from time import time
-from typing import Dict, List, Any, Union
+from typing import Dict, List, Union
 from uuid import uuid1
 
 from twisted.web import resource
 from twisted.web.http import Request
-from twisted.web.resource import ErrorPage
 from voluptuous import Schema, error
 
-from common import users, chatCache, online_users, protocols, web_users_by_token, web_users_by_username, filter_string
+from common import users, chat_cache, online_users, protocols, web_users_by_token, web_users_by_username, filter_string
 from user import User
-
 
 
 class ChatResource(resource.Resource):
     def __init__(self):
         super(ChatResource, self).__init__()
-        self.__data = None
+        self.data = None
 
     def render_OPTIONS(self, request: Request) -> bytes:
         """basic options request. No body.
@@ -28,7 +25,6 @@ class ChatResource(resource.Resource):
         """
         # request.setHeader('allow', 'OPTIONS, GET, HEAD, POST')
         return b''
-
 
     def getChild(self, path: str, request: Request) -> resource.Resource:
         """gets child resource from root to get answer
@@ -41,7 +37,7 @@ class ChatResource(resource.Resource):
             super(ChatResource, self).getChild(path, request)
         return child
 
-    def render(self, request: Request)-> bytes:
+    def render(self, request: Request) -> bytes:
         """We're adding some CORS headers for future use, also we're sending content-type
 
         """
@@ -86,15 +82,15 @@ class ChatResource(resource.Resource):
             schema(data)
         except error.MultipleInvalid as e:
             return self.abort(request, 422, 'Data schema does not match')
-        self.__data = data
+        self.data = data
         return True
-
 
 
 class UserResource(ChatResource):
     """
     All the resources that can generate access tokens
     """
+
     def activate_user(self, username: str, user: User) -> str:
         """generates bearer token for user, adds user to online users and adds special object to web users pools
 
@@ -115,8 +111,6 @@ class UserResource(ChatResource):
         return token
 
 
-
-
 class Register(UserResource):
     isLeaf = True
 
@@ -130,8 +124,8 @@ class Register(UserResource):
         check_result = self.is_parseable_and_valid(request, schema)
         if check_result is not True:
             return check_result
-        username = self.__data.get('username')
-        password = self.__data.get('password')
+        username = self.data.get('username')
+        password = self.data.get('password')
         if username not in users:
             user = User(username, password)
             if user.register():
@@ -154,8 +148,8 @@ class Auth(UserResource):
         check_result = self.is_parseable_and_valid(request, schema)
         if check_result is not True:
             return check_result
-        username = self.__data.get('username')
-        password = self.__data.get('password')
+        username = self.data.get('username')
+        password = self.data.get('password')
         if username in users:
             user = users.get(username)
             if username not in online_users or username in web_users_by_username:
@@ -174,13 +168,12 @@ class AuthorizedResources(ChatResource):
         """Checks is user submitted access token and this token is valid
 
         """
-        raw_auth = request.requestHeaders.getRawHeaders('authorization')
-        for auth_item in raw_auth:
-            auth = auth_item.split()
-            if len(auth) == 2:
-                if auth[1] in web_users_by_token:
-                    web_users_by_token[auth[1]]['updated'] = time()
-                    return web_users_by_token[auth[1]]['user']
+        raw_auth = request.getHeader('authorization')
+        auth = raw_auth.split()
+        if len(auth) == 2:
+            if auth[1] in web_users_by_token:
+                web_users_by_token[auth[1]]['updated'] = time()
+                return web_users_by_token[auth[1]]['user']
         return self.abort(request, 401, "You're not authorized")
 
 
@@ -208,7 +201,7 @@ class ChatChat(AuthorizedResources):
         """
         user = self.check_auth(request)
         if isinstance(user, User):
-            return json.dumps(chatCache.getCache()).encode()
+            return json.dumps(chat_cache.getCache()).encode()
         return user
 
     def render_POST(self, request: Request) -> bytes:
@@ -223,9 +216,9 @@ class ChatChat(AuthorizedResources):
             check_result = self.is_parseable_and_valid(request, schema)
             if check_result is not True:
                 return check_result
-            message = filter_string(self.__data.get('message'))
+            message = filter_string(self.data.get('message'))
             timestamp = time()
-            chatCache.push_line(timestamp, user.name, message)
+            chat_cache.push_line(timestamp, user.name, message)
             for client in protocols:
                 if client.authorized:
                     client.send_message(timestamp, user.name, message)

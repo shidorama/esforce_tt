@@ -2,3 +2,4 @@ twisted
 autobahn
 voluptuous
 mock
+-e git+https://github.com/shidorama/test_helpers.git#egg=unittest_helpers
